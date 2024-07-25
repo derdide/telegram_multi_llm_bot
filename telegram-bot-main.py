@@ -30,7 +30,7 @@ openai.api_key = OPENAI_API_KEY
 anthropic = Anthropic(api_key=ANTHROPIC_API_KEY)
 
 # Load special chat modes
-with open('chat_modes.json', 'r') as f:
+with open('chat-modes.json', 'r') as f:
     CHAT_MODES = json.load(f)
 
 # Database setup
@@ -58,7 +58,7 @@ async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     /gpt <message> - Interact with GPT
     /claude <message> - Interact with Claude
     /compare <message> - Compare responses from GPT and Claude
-    /generate_image <prompt> - Generate an image based on the prompt
+    /image <prompt> - Generate an image based on the prompt
     /mode <mode_name> - Switch to a special chat mode
     /balance - Check the current API usage and costs
     """
@@ -79,7 +79,7 @@ async def gpt_request(prompt, image_content=None, mode=None):
                 {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{image_content}"}}
             ]
         
-        response = await openai.chat.completions.create(
+        response = openai.chat.completions.create(
             model=OPENAI_MODEL,
             messages=messages,
             max_tokens=300
@@ -106,7 +106,7 @@ async def claude_request(prompt, image_content=None, mode=None):
                 {"type": "image", "source": {"type": "base64", "media_type": "image/jpeg", "data": image_content}}
             ]
         
-        response = await anthropic.messages.create(
+        response = anthropic.messages.create(
             model=ANTHROPIC_MODEL,
             max_tokens=300,
             messages=messages
@@ -172,7 +172,7 @@ async def generate_image_command(update: Update, context: ContextTypes.DEFAULT_T
         return
 
     try:
-        response = await openai.images.generate(
+        response = openai.images.generate(
             model=IMAGE_GEN_MODEL,
             prompt=prompt,
             size="1024x1024",
@@ -239,7 +239,7 @@ def main():
     application.add_handler(CommandHandler("gpt", gpt_command))
     application.add_handler(CommandHandler("claude", claude_command))
     application.add_handler(CommandHandler("compare", compare_command))
-    application.add_handler(CommandHandler("generate_image", generate_image_command))
+    application.add_handler(CommandHandler("image", generate_image_command))
     application.add_handler(CommandHandler("mode", set_mode_command))
     application.add_handler(CommandHandler("balance", balance_command))
 
