@@ -2,6 +2,8 @@
 __pycache__/
 *.py[cod]
 *$py.class
+*.sqlite
+chat-modes.json
 
 # C extensions
 *.so
