@@ -98,6 +98,7 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 - OpenAI for GPT and DALL-E APIs
 - Anthropic for the Claude API
 - The Python Telegram Bot library
+- Claude itself (3.5 Sonnet model) for its (significant) technical assistance   
 
 ---
 
