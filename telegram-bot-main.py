@@ -12,11 +12,11 @@ from anthropic import Anthropic
 import base64
 from dotenv import load_dotenv
 
-# Set up logging
+# Set up logging for debugging and monitoring
 logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', level=logging.INFO)
 logger = logging.getLogger(__name__)
  
-# Load environment variables
+# Load environment variables from a .env file
 load_dotenv()
 TELEGRAM_TOKEN = os.getenv('TELEGRAM_TOKEN')
 OPENAI_API_KEY = os.getenv('OPENAI_API_KEY')
@@ -25,22 +25,24 @@ OPENAI_MODEL = os.getenv('OPENAI_MODEL', 'gpt-4-vision-preview')
 ANTHROPIC_MODEL = os.getenv('ANTHROPIC_MODEL', 'claude-3-opus-20240229')
 IMAGE_GEN_MODEL = os.getenv('IMAGE_GEN_MODEL', 'dall-e-3')
 
-# Initialize API clients
+# Initialize API clients for OpenAI and Anthropic
 openai.api_key = OPENAI_API_KEY
 anthropic = Anthropic(api_key=ANTHROPIC_API_KEY)
 
-# Load special chat modes
+# Load special chat modes from a JSON file
 with open('chat-modes.json', 'r') as f:
     CHAT_MODES = json.load(f)
 
-# Database setup
+# Set up SQLite database for storing conversations and API usage
 def setup_database():
     conn = sqlite3.connect('bot_database.sqlite')
     cursor = conn.cursor()
+    # Create table for storing conversations
     cursor.execute('''
     CREATE TABLE IF NOT EXISTS conversations
     (user_id INTEGER, message TEXT, response TEXT, timestamp DATETIME DEFAULT CURRENT_TIMESTAMP)
     ''')
+    # Create table for tracking API usage
     cursor.execute('''
     CREATE TABLE IF NOT EXISTS api_usage
     (api STRING, tokens_used INTEGER, cost REAL, timestamp DATETIME DEFAULT CURRENT_TIMESTAMP)
@@ -50,9 +52,11 @@ def setup_database():
 
 # Bot command handlers
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    # Send welcome message when the command /start is issued
     await update.message.reply_text('Welcome! I can help you interact with GPT and Claude, generate images, and use special chat modes. Use /help for more information.')
 
 async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    # Provide help information when the command /help is issued
     help_text = """
     Available commands:
     /gpt <message> - Interact with GPT
@@ -65,11 +69,13 @@ async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(help_text)
 
 async def get_file_content(file):
+    # Download and encode file content as base64
     file_content = await file.download_as_bytearray()
     return base64.b64encode(file_content).decode('utf-8')
 
 async def gpt_request(prompt, image_content=None, mode=None):
     try:
+        # Prepare messages for GPT API request
         messages = [{"role": "user", "content": prompt}]
         if mode:
             messages.insert(0, {"role": "system", "content": CHAT_MODES[mode]})
@@ -79,13 +85,14 @@ async def gpt_request(prompt, image_content=None, mode=None):
                 {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{image_content}"}}
             ]
         
+        # Make API call to OpenAI
         response = openai.chat.completions.create(
             model=OPENAI_MODEL,
             messages=messages,
             max_tokens=300
         )
         
-        # Track usage
+        # Track API usage
         tokens_used = response.usage.total_tokens
         cost = tokens_used * 0.00002  # Assuming $0.02 per 1K tokens, adjust as needed
         save_api_usage("openai", tokens_used, cost)
@@ -97,6 +104,7 @@ async def gpt_request(prompt, image_content=None, mode=None):
 
 async def claude_request(prompt, image_content=None, mode=None):
     try:
+        # Prepare messages for Claude API request
         messages = [{"role": "user", "content": prompt}]
         if mode:
             messages.insert(0, {"role": "system", "content": CHAT_MODES[mode]})
@@ -106,13 +114,14 @@ async def claude_request(prompt, image_content=None, mode=None):
                 {"type": "image", "source": {"type": "base64", "media_type": "image/jpeg", "data": image_content}}
             ]
         
+        # Make API call to Anthropic
         response = anthropic.messages.create(
             model=ANTHROPIC_MODEL,
             max_tokens=300,
             messages=messages
         )
         
-        # Track usage (Note: Anthropic doesn't provide token count, so we'll estimate)
+        # Track API usage (Note: Anthropic doesn't provide token count, so we'll estimate)
         estimated_tokens = len(prompt.split()) + len(response.content[0].text.split())
         cost = estimated_tokens * 0.00002  # Adjust the cost calculation as needed
         save_api_usage("anthropic", estimated_tokens, cost)
@@ -123,6 +132,7 @@ async def claude_request(prompt, image_content=None, mode=None):
         return "Error occurred while processing Claude request."
 
 async def process_message(update: Update, context: ContextTypes.DEFAULT_TYPE, model_request):
+    # Process user message and handle image attachments
     user_message = update.message.text
     image_content = None
     mode = context.user_data.get('mode')
@@ -134,17 +144,21 @@ async def process_message(update: Update, context: ContextTypes.DEFAULT_TYPE, mo
         file = await context.bot.get_file(update.message.photo[-1].file_id)
         image_content = await get_file_content(file)
 
+    # Get response from the specified model
     response = await model_request(user_message, image_content, mode)
     await update.message.reply_text(response)
     save_to_database(update.effective_user.id, user_message, response)
 
 async def gpt_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    # Handle /gpt command
     await process_message(update, context, gpt_request)
 
 async def claude_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    # Handle /claude command
     await process_message(update, context, claude_request)
 
 async def compare_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    # Handle /compare command to get responses from both GPT and Claude
     user_message = update.message.text.replace('/compare', '').strip()
     image_content = None
     mode = context.user_data.get('mode')
@@ -156,6 +170,7 @@ async def compare_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         file = await context.bot.get_file(update.message.photo[-1].file_id)
         image_content = await get_file_content(file)
 
+    # Get responses from both models concurrently
     gpt_response, claude_response = await asyncio.gather(
         gpt_request(user_message, image_content, mode),
         claude_request(user_message, image_content, mode)
@@ -166,12 +181,14 @@ async def compare_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     save_to_database(update.effective_user.id, user_message, combined_response)
 
 async def generate_image_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    # Handle /generate_image command to create images using DALL-E
     prompt = update.message.text.replace('/generate_image', '').strip()
     if not prompt:
         await update.message.reply_text("Please provide a prompt for image generation.")
         return
 
     try:
+        # Make API call to OpenAI for image generation
         response = openai.images.generate(
             model=IMAGE_GEN_MODEL,
             prompt=prompt,
@@ -192,6 +209,7 @@ async def generate_image_command(update: Update, context: ContextTypes.DEFAULT_T
         await update.message.reply_text("An error occurred while generating the image.")
 
 async def set_mode_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    # Handle /mode command to set special chat modes
     mode = context.args[0] if context.args else None
     if mode and mode in CHAT_MODES:
         context.user_data['mode'] = mode
@@ -201,6 +219,7 @@ async def set_mode_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text(f"Invalid mode. Available modes are: {available_modes}")
 
 async def balance_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    # Handle /balance command to show API usage summary
     conn = sqlite3.connect('bot_database.sqlite')
     cursor = conn.cursor()
     cursor.execute("SELECT api, SUM(tokens_used) as total_tokens, SUM(cost) as total_cost FROM api_usage GROUP BY api")
@@ -214,6 +233,7 @@ async def balance_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(balance_text)
 
 def save_to_database(user_id, message, response):
+    # Save conversation to SQLite database
     conn = sqlite3.connect('bot_database.sqlite')
     cursor = conn.cursor()
     cursor.execute('INSERT INTO conversations (user_id, message, response) VALUES (?, ?, ?)',
@@ -222,6 +242,7 @@ def save_to_database(user_id, message, response):
     conn.close()
 
 def save_api_usage(api, tokens_used, cost):
+    # Save API usage data to SQLite database
     conn = sqlite3.connect('bot_database.sqlite')
     cursor = conn.cursor()
     cursor.execute('INSERT INTO api_usage (api, tokens_used, cost) VALUES (?, ?, ?)',
@@ -230,10 +251,12 @@ def save_api_usage(api, tokens_used, cost):
     conn.close()
 
 def main():
+    # Set up the database and initialize the Telegram bot
     setup_database()
     
     application = Application.builder().token(TELEGRAM_TOKEN).build()
 
+    # Add command handlers
     application.add_handler(CommandHandler("start", start))
     application.add_handler(CommandHandler("help", help_command))
     application.add_handler(CommandHandler("gpt", gpt_command))
@@ -243,6 +266,7 @@ def main():
     application.add_handler(CommandHandler("mode", set_mode_command))
     application.add_handler(CommandHandler("balance", balance_command))
 
+    # Start the bot
     application.run_polling()
 
 if __name__ == '__main__':
