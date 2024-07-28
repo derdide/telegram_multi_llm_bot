@@ -34,11 +34,13 @@ Welcome to the AI-Powered Telegram Bot project! This versatile bot brings the po
 4. **Set up environment variables**
    Create a `.env` file in the project root and add the following:
    ```
-   TELEGRAM_TOKEN=your_telegram_bot_token
-   OPENAI_API_KEY=your_openai_api_key
-   ANTHROPIC_API_KEY=your_anthropic_api_key
-   OPENAI_MODEL=gpt-4-vision-preview
-   ANTHROPIC_MODEL=claude-3-opus-20240229
+   TELEGRAM_TOKEN= add your telegram bot token, as provided by Botfather
+   OPENAI_API_KEY= add your openai api key
+   ANTHROPIC_API_KEY= add your anthropic api key
+   OPENAI_MODEL=gpt-4o-mini (or change with another model)
+   OPENAI_TOKENS= 16000 or adapt _
+   ANTHROPIC_MODEL=claude-3-opus-20240229 (or change with another model)
+   ANTHROPIC_TOKENS=4000 or adapt
    IMAGE_GEN_MODEL=dall-e-3
    ```
 

@@ -21,9 +21,11 @@ load_dotenv()
 TELEGRAM_TOKEN = os.getenv('TELEGRAM_TOKEN')
 OPENAI_API_KEY = os.getenv('OPENAI_API_KEY')
 ANTHROPIC_API_KEY = os.getenv('ANTHROPIC_API_KEY')
-OPENAI_MODEL = os.getenv('OPENAI_MODEL', 'gpt-4-vision-preview')
-ANTHROPIC_MODEL = os.getenv('ANTHROPIC_MODEL', 'claude-3-opus-20240229')
-IMAGE_GEN_MODEL = os.getenv('IMAGE_GEN_MODEL', 'dall-e-3')
+OPENAI_MODEL = os.getenv('OPENAI_MODEL')
+OPENAI_TOKENS = os.getenv('OPENAI_TOKENS')
+ANTHROPIC_MODEL = os.getenv('ANTHROPIC_MODEL')
+ANTHROPIC_TOKENS = os.getenv('ANTHROPIC_TOKENS')
+IMAGE_GEN_MODEL = os.getenv('IMAGE_GEN_MODEL')
 
 # Initialize API clients for OpenAI and Anthropic
 openai.api_key = OPENAI_API_KEY
@@ -84,19 +86,19 @@ async def gpt_request(prompt, image_content=None, mode=None):
                 {"type": "text", "text": prompt},
                 {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{image_content}"}}
             ]
-        
+
         # Make API call to OpenAI
         response = openai.chat.completions.create(
             model=OPENAI_MODEL,
             messages=messages,
-            max_tokens=300
+            max_tokens=int(OPENAI_TOKENS)
         )
-        
+
         # Track API usage
         tokens_used = response.usage.total_tokens
         cost = tokens_used * 0.00002  # Assuming $0.02 per 1K tokens, adjust as needed
         save_api_usage("openai", tokens_used, cost)
-        
+
         return response.choices[0].message.content.strip()
     except Exception as e:
         logger.error(f"Error in GPT request: {str(e)}")
@@ -113,19 +115,19 @@ async def claude_request(prompt, image_content=None, mode=None):
                 {"type": "text", "text": prompt},
                 {"type": "image", "source": {"type": "base64", "media_type": "image/jpeg", "data": image_content}}
             ]
-        
+
         # Make API call to Anthropic
         response = anthropic.messages.create(
             model=ANTHROPIC_MODEL,
-            max_tokens=300,
+            max_tokens=int(ANTHROPIC_TOKENS),
             messages=messages
         )
-        
+
         # Track API usage (Note: Anthropic doesn't provide token count, so we'll estimate)
         estimated_tokens = len(prompt.split()) + len(response.content[0].text.split())
         cost = estimated_tokens * 0.00002  # Adjust the cost calculation as needed
         save_api_usage("anthropic", estimated_tokens, cost)
-        
+
         return response.content[0].text
     except Exception as e:
         logger.error(f"Error in Claude request: {str(e)}")
@@ -148,6 +150,11 @@ async def process_message(update: Update, context: ContextTypes.DEFAULT_TYPE, mo
     response = await model_request(user_message, image_content, mode)
     await update.message.reply_text(response)
     save_to_database(update.effective_user.id, user_message, response)
+
+def escape_markdown(text):
+    """Helper function to escape markdown special characters"""
+    escape_chars = '_*[]()~`>#+-=|{}.!'
+    return ''.join('\\' + char if char in escape_chars else char for char in text)
 
 async def gpt_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     # Handle /gpt command
@@ -176,8 +183,20 @@ async def compare_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         claude_request(user_message, image_content, mode)
     )
 
-    combined_response = f"GPT Response:\n{gpt_response}\n\nClaude Response:\n{claude_response}"
-    await update.message.reply_text(combined_response)
+    # Format the response using Telegram's markdown
+    combined_response = (
+        "*GPT Response:*\n"
+        "\n"
+        f"{escape_markdown(gpt_response)}\n"
+        "\n\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\n"
+        "*Claude Response:*\n"
+        "\n"
+        f"{escape_markdown(claude_response)}\n"
+        ""
+    )
+
+    # Send the formatted message
+    await update.message.reply_text(combined_response, parse_mode='MarkdownV2')
     save_to_database(update.effective_user.id, user_message, combined_response)
 
 async def generate_image_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -196,13 +215,13 @@ async def generate_image_command(update: Update, context: ContextTypes.DEFAULT_T
             quality="standard",
             n=1,
         )
-        
+
         image_url = response.data[0].url
-        
+
         # Estimate usage (since OpenAI doesn't provide token count for image generation)
         estimated_cost = 0.02  # Adjust based on your DALL-E API pricing
         save_api_usage("openai_image", 0, estimated_cost)
-        
+
         await update.message.reply_photo(image_url, caption="Generated image based on your prompt.")
     except Exception as e:
         logger.error(f"Error in image generation: {str(e)}")
@@ -253,7 +272,7 @@ def save_api_usage(api, tokens_used, cost):
 def main():
     # Set up the database and initialize the Telegram bot
     setup_database()
-    
+
     application = Application.builder().token(TELEGRAM_TOKEN).build()
 
     # Add command handlers
