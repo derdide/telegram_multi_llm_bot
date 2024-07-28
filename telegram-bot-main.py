@@ -82,10 +82,14 @@ async def gpt_request(prompt, image_content=None, mode=None):
         if mode:
             messages.insert(0, {"role": "system", "content": CHAT_MODES[mode]})
         if image_content:
-            messages[-1]["content"] = [
-                {"type": "text", "text": prompt},
-                {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{image_content}"}}
+            messages = [
+             {"role": "user", "content": [
+              {"type": "text", "text": prompt},
+              {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{image_content}"}}
+             ]}
             ]
+        # adding some logging
+        logger.info(f"Sending request to OpenAI. Model: {OPENAI_MODEL}, Messages: {messages}")
 
         # Make API call to OpenAI
         response = openai.chat.completions.create(
@@ -93,6 +97,8 @@ async def gpt_request(prompt, image_content=None, mode=None):
             messages=messages,
             max_tokens=int(OPENAI_TOKENS)
         )
+
+        logger.info(f"Received response from OpenAI: {response}")
 
         # Track API usage
         tokens_used = response.usage.total_tokens
@@ -111,10 +117,14 @@ async def claude_request(prompt, image_content=None, mode=None):
         if mode:
             messages.insert(0, {"role": "system", "content": CHAT_MODES[mode]})
         if image_content:
-            messages[-1]["content"] = [
-                {"type": "text", "text": prompt},
-                {"type": "image", "source": {"type": "base64", "media_type": "image/jpeg", "data": image_content}}
+            messages = [
+                {"role": "user", "content": [
+                    {"type": "text", "text": prompt},
+                    {"type": "image", "source": {"type": "base64", "media_type": "image/jpeg", "data": image_content}}
+                ]}
             ]
+
+        logger.info(f"Sending request to Anthropic. Model: {ANTHROPIC_MODEL}, Messages: {messages}")
 
         # Make API call to Anthropic
         response = anthropic.messages.create(
@@ -122,6 +132,8 @@ async def claude_request(prompt, image_content=None, mode=None):
             max_tokens=int(ANTHROPIC_TOKENS),
             messages=messages
         )
+
+        logger.info(f"Received response from Anthropic: {response}")
 
         # Track API usage (Note: Anthropic doesn't provide token count, so we'll estimate)
         estimated_tokens = len(prompt.split()) + len(response.content[0].text.split())
@@ -139,12 +151,22 @@ async def process_message(update: Update, context: ContextTypes.DEFAULT_TYPE, mo
     image_content = None
     mode = context.user_data.get('mode')
 
+    # adding some logging
+    logger.info(f"Received message: {user_message}")
+
     if update.message.document:
         file = await context.bot.get_file(update.message.document.file_id)
         image_content = await get_file_content(file)
+        logger.info("Document received and processed")
     elif update.message.photo:
         file = await context.bot.get_file(update.message.photo[-1].file_id)
         image_content = await get_file_content(file)
+        logger.info("Photo received and processed")
+
+    if image_content:
+        logger.info("Image content successfully extracted")
+    else:
+        logger.info("No image content found")
 
     # Get response from the specified model
     response = await model_request(user_message, image_content, mode)
@@ -158,10 +180,12 @@ def escape_markdown(text):
 
 async def gpt_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     # Handle /gpt command
+    logger.info("GPT command received")
     await process_message(update, context, gpt_request)
 
 async def claude_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     # Handle /claude command
+    logger.info("Claude command received")
     await process_message(update, context, claude_request)
 
 async def compare_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -173,10 +197,16 @@ async def compare_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.message.document:
         file = await context.bot.get_file(update.message.document.file_id)
         image_content = await get_file_content(file)
+        logger.info("Document received for compare command")
     elif update.message.photo:
         file = await context.bot.get_file(update.message.photo[-1].file_id)
         image_content = await get_file_content(file)
+        logger.info("Photo received for compare command")
 
+    if image_content:
+        logger.info("Image content successfully extracted for compare command")
+    else:
+        logger.info("No image content found for compare command")
     # Get responses from both models concurrently
     gpt_response, claude_response = await asyncio.gather(
         gpt_request(user_message, image_content, mode),
