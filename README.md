@@ -1,4 +1,4 @@
-# Multi-LLM Powered Telegram Bot 🤖🚀
+# Multi-LLM Telegram Bot 🤖🚀
 
 Welcome to the Multi-LLM Telegram Bot project! This versatile bot brings the power of GPT and Claude AI models directly to your Telegram chats, allowing to prompt both GPT and Claude through Telegram to easily compare the responses from both models. There are also  image generation capabilities and special chat modes. 
 
