@@ -16,7 +16,7 @@ Welcome to the AI-Powered Telegram Bot project! This versatile bot brings the po
 
 1. **Clone the repository**
    ```
-   git clone [https://github.com/yourusername/ai-powered-telegram-bot.git](https://github.com/derdide/telegram_multi_llm_bot/)
+   git clone https://github.com/derdide/telegram_multi_llm_bot/
    cd telegram_multi_llm_bot
    ```
 
