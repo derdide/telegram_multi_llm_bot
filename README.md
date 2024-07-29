@@ -1,6 +1,8 @@
-# AI-Powered Telegram Bot 🤖🚀
+# Multi-LLM Powered Telegram Bot 🤖🚀
 
-Welcome to the AI-Powered Telegram Bot project! This versatile bot brings the power of GPT and Claude AI models directly to your Telegram chats, along with image generation capabilities and special chat modes. I currently run this on a self-hosted Raspberry Pi2 running Raspbian. Most of the workload is on the LLM hosting side (e.g. OPenAI or Anthropic) and the resource useage on the bot side itself is quite low - of course, this may vary significantly depending on how many users run your bot. The bot is currently built with the assumption that useage will be limited with a low number of users (yourself, friends and family). 
+Welcome to the Multi-LLM Telegram Bot project! This versatile bot brings the power of GPT and Claude AI models directly to your Telegram chats, allowing to prompt both GPT and Claude through Telegram to easily compare the responses from both models. There are also  image generation capabilities and special chat modes. 
+
+I currently run this bot on a self-hosted Raspberry Pi2 running Raspbian. Most of the workload is on the LLM hosting side (e.g. OPenAI or Anthropic) and the resource useage on the bot side itself is quite low - of course, this may vary significantly depending on how many users run your bot. The bot is currently built with the assumption that useage will be limited with a low number of users (yourself, friends and family). 
 
 ## 🌟 Features
 
