@@ -106,4 +106,4 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ---
 
-Happy chatting with your new AI-powered Telegram bot! If you have any questions or run into issues, please open an issue on GitHub. Enjoy exploring the capabilities of GPT and Claude through your Telegram chats! 🎉🤖
+Happy chatting with your AI-powered Telegram bot! If you have any questions or run into issues, please open an issue on GitHub. Enjoy exploring the capabilities of GPT and Claude through your Telegram chats! 🎉🤖
