@@ -108,7 +108,7 @@ async def gpt_request(prompt, image_content=None, mode=None):
     try:
         # Prepare messages for GPT API request
         messages = [{"role": "user", "content": prompt}]
-        if mode:
+        if mode and mode in CHAT_MODES:
             messages.insert(0, {"role": "system", "content": CHAT_MODES[mode]})
         if image_content:
             messages = [
@@ -298,7 +298,11 @@ async def set_mode_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not is_authorized(update):
         await update.message.reply_text("Sorry, you are not authorized to use this bot.")
         return
-    if mode and mode in CHAT_MODES:
+    if mode == "reset":
+        if 'mode' in context.user_data:
+            del context.user_data['mode']
+        await update.message.reply_text("Chat mode reset to normal.")
+    elif mode and mode in CHAT_MODES:
         context.user_data['mode'] = mode
         await update.message.reply_text(f"Chat mode set to: {mode}")
     else:
