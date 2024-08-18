@@ -26,7 +26,20 @@ OPENAI_TOKENS = os.getenv('OPENAI_TOKENS')
 ANTHROPIC_MODEL = os.getenv('ANTHROPIC_MODEL')
 ANTHROPIC_TOKENS = os.getenv('ANTHROPIC_TOKENS')
 IMAGE_GEN_MODEL = os.getenv('IMAGE_GEN_MODEL')
+AUTHORIZED_USERS = list(map(int, os.getenv('AUTHORIZED_USERS', '').split(',')))
+AUTHORIZED_GROUPS = list(map(int, os.getenv('AUTHORIZED_GROUPS', '').split(',')))
 
+# Telegram authorized Users and group chats
+def is_authorized(update: Update) -> bool:
+    user_id = update.effective_user.id
+    chat_id = update.effective_chat.id
+    
+    if user_id in AUTHORIZED_USERS:
+        return True
+    if chat_id in AUTHORIZED_GROUPS:
+        return True
+    return False
+ 
 # Initialize API clients for OpenAI and Anthropic
 openai.api_key = OPENAI_API_KEY
 anthropic = Anthropic(api_key=ANTHROPIC_API_KEY)
@@ -55,6 +68,9 @@ def setup_database():
 # Bot command handlers
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     # Send welcome message when the command /start is issued
+    if not is_authorized(update):
+        await update.message.reply_text("Sorry, you are not authorized to use this bot.")
+        return
     await update.message.reply_text('Welcome! I can help you interact with GPT and Claude, generate images, and use special chat modes. Use /help for more information.')
 
 async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -68,10 +84,16 @@ async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     /mode <mode_name> - Switch to a special chat mode
     /balance - Check the current API usage and costs
     """
+    if not is_authorized(update):
+        await update.message.reply_text("Sorry, you are not authorized to use this bot.")
+        return
     await update.message.reply_text(help_text)
 
 async def get_file_content(file):
     # Download and encode file content as base64
+    if not is_authorized(update):
+        await update.message.reply_text("Sorry, you are not authorized to use this bot.")
+        return
     file_content = await file.download_as_bytearray()
     return base64.b64encode(file_content).decode('utf-8')
 
@@ -153,7 +175,10 @@ async def process_message(update: Update, context: ContextTypes.DEFAULT_TYPE, mo
 
     # adding some logging
     logger.info(f"Received message: {user_message}")
-
+    if not is_authorized(update):
+        await update.message.reply_text("Sorry, you are not authorized to use this bot.")
+        return
+    
     if update.message.document:
         file = await context.bot.get_file(update.message.document.file_id)
         image_content = await get_file_content(file)
@@ -232,6 +257,9 @@ async def compare_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def generate_image_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     # Handle /generate_image command to create images using DALL-E
     prompt = update.message.text.replace('/generate_image', '').strip()
+    if not is_authorized(update):
+        await update.message.reply_text("Sorry, you are not authorized to use this bot.")
+        return
     if not prompt:
         await update.message.reply_text("Please provide a prompt for image generation.")
         return
@@ -260,6 +288,9 @@ async def generate_image_command(update: Update, context: ContextTypes.DEFAULT_T
 async def set_mode_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     # Handle /mode command to set special chat modes
     mode = context.args[0] if context.args else None
+    if not is_authorized(update):
+        await update.message.reply_text("Sorry, you are not authorized to use this bot.")
+        return
     if mode and mode in CHAT_MODES:
         context.user_data['mode'] = mode
         await update.message.reply_text(f"Chat mode set to: {mode}")
@@ -269,6 +300,9 @@ async def set_mode_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def balance_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     # Handle /balance command to show API usage summary
+    if not is_authorized(update):
+        await update.message.reply_text("Sorry, you are not authorized to use this bot.")
+        return
     conn = sqlite3.connect('bot_database.sqlite')
     cursor = conn.cursor()
     cursor.execute("SELECT api, SUM(tokens_used) as total_tokens, SUM(cost) as total_cost FROM api_usage GROUP BY api")
@@ -315,6 +349,12 @@ def main():
     application.add_handler(CommandHandler("mode", set_mode_command))
     application.add_handler(CommandHandler("balance", balance_command))
 
+    application.add_handler(MessageHandler(
+        filters.ALL & ~filters.COMMAND,
+        lambda update, context: update.message.reply_text("Sorry, you are not authorized to use this bot.")
+        if not is_authorized(update) else None
+    ))
+ 
     # Start the bot
     application.run_polling()
 
