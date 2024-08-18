@@ -12,6 +12,8 @@ from anthropic import Anthropic
 import base64
 from dotenv import load_dotenv
 
+MAX_MESSAGE_LENGTH = 4096  # Telegram's maximum message length
+
 # Set up logging for debugging and monitoring
 logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -206,67 +208,84 @@ async def split_long_message(message, max_length=4000):
     return parts
 
 async def process_message(update: Update, context: ContextTypes.DEFAULT_TYPE, model_request, model_name, image_content = None):
-    # Process user message and handle image attachments
+    # Extract necessary information from the update object
+    chat_id = update.effective_chat.id
     user_message = update.message.text
     mode = context.user_data.get('mode')
-    chat_id = update.effective_chat.id
 
-    # adding some logging
-    logger.info(f"Received message: {user_message}")
+    logger.info(f"Processing message for {model_name}. Chat ID: {chat_id}")
+
+    # Check user authorization
     if not is_authorized(update):
         await context.bot.send_message(chat_id=chat_id, text="Sorry, you are not authorized to use this bot.")
         return
-    
+
+    # Process image content if present
     if image_content is None:
         if update.message.document:
             file = await context.bot.get_file(update.message.document.file_id)
             image_content = await get_file_content(file)
-            logger.info(f"Document received and processed for {model_name}")
+            logger.info(f"Document processed for {model_name}")
         elif update.message.photo:
             file = await context.bot.get_file(update.message.photo[-1].file_id)
             image_content = await get_file_content(file)
-            logger.info(f"Photo received and processed for {model_name}")
+            logger.info(f"Photo processed for {model_name}")
 
-    if image_content:
-        logger.info(f"Image content successfully extracted for {model_name}")
-    else:
-        logger.info(f"No image content found for {model_name}")
-
+    # Request response from the specified AI model
     logger.info(f"Requesting response from {model_name}")
     response = await model_request(user_message, image_content, mode)
-    logger.info(f"Received response from {model_name}")
+    logger.info(f"Received response from {model_name}. Length: {len(response)} characters")
 
+    # Prepare the full response with the model name
     full_response = f"*{model_name} says:*\n\n{response}"
-    response_parts = await split_long_message(full_response)
+    
+    # Manually split the response into parts to fit Telegram's message length limit
+    response_parts = []
+    while full_response:
+        if len(full_response) <= MAX_MESSAGE_LENGTH:
+            response_parts.append(full_response)
+            break
+        # Find the last newline character within the allowed length
+        split_index = full_response.rfind('\n', 0, MAX_MESSAGE_LENGTH)
+        if split_index == -1:  # If no newline found, split at the maximum length
+            split_index = MAX_MESSAGE_LENGTH
+        response_parts.append(full_response[:split_index])
+        full_response = full_response[split_index:].lstrip()  # Remove leading whitespace from the next part
     
     total_parts = len(response_parts)
-    logger.info(f"Response split into {total_parts} parts")
+    logger.info(f"Response manually split into {total_parts} parts")
 
+    # Inform the user if the response will be sent in multiple parts
     if total_parts > 1:
         await context.bot.send_message(chat_id=chat_id, text=f"Multi-part answer - expecting {total_parts} messages")
 
+    # Send each part of the response
     for i, part in enumerate(response_parts, 1):
         try:
-            logger.info(f"Sending part {i} of {total_parts}")
+            logger.info(f"Sending part {i} of {total_parts}. Length: {len(part)} characters")
             await context.bot.send_message(
                 chat_id=chat_id,
                 text=escape_markdown(f"Part {i}/{total_parts}:\n\n{part}"),
                 parse_mode='MarkdownV2'
             )
             logger.info(f"Successfully sent part {i} of {total_parts}")
-            await asyncio.sleep(1)  # Add a small delay between messages
+            await asyncio.sleep(1)  # Add a small delay between messages to avoid rate limiting
         except Exception as e:
             logger.error(f"Error sending message part {i}: {str(e)}")
             try:
+                # Fallback: try sending without markdown and escaping if the first attempt fails
                 await context.bot.send_message(chat_id=chat_id, text=f"Part {i}/{total_parts}:\n\n{part}")
                 logger.info(f"Sent part {i} without markdown")
             except Exception as e2:
                 logger.error(f"Error sending plain message part {i}: {str(e2)}")
 
-    save_to_database(update.effective_user.id, user_message, full_response)
+    # Save the conversation to the database
+    save_to_database(update.effective_user.id, user_message, '\n'.join(response_parts))
     logger.info(f"Completed processing message for {model_name}")
 
-    return full_response
+    return '\n'.join(response_parts)
+
+
 def escape_markdown(text):
     """Helper function to escape markdown special characters"""
     escape_chars = '_*[]()~`>#+-=|{}.!'
@@ -285,33 +304,49 @@ async def claude_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await process_message(update, context, claude_request, "Claude")
 
 async def compare_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    # Handle /compare command to get responses from both GPT and Claude
+    # Extract chat ID and inform the user that the request is being processed
     chat_id = update.effective_chat.id
-    await context.bot.send_message(chat_id=chat_id, text="Hold on a sec")
+    await context.bot.send_message(chat_id=chat_id, text="Processing your request, please wait...")
+
+    # Initialize image content as None
     image_content = None
+
+    # Extract the user's message, removing the '/compare' command
     user_message = update.message.text.replace('/compare', '').strip()
 
+    # Log the first 50 characters of the user's message for debugging
+    logger.info(f"Received compare command. User message: {user_message[:50]}...")
+
+    # Process attached document or photo, if any
     if update.message.document:
         file = await context.bot.get_file(update.message.document.file_id)
         image_content = await get_file_content(file)
+        logger.info("Document received for comparison")
     elif update.message.photo:
         file = await context.bot.get_file(update.message.photo[-1].file_id)
         image_content = await get_file_content(file)
+        logger.info("Photo received for comparison")
 
+    # Process the message with Claude
     logger.info("Starting Claude response")
-    await process_message(update, context, claude_request, "Claude", image_content)
-    logger.info("Completed Claude response")
+    claude_response = await process_message(update, context, claude_request, "Claude", image_content)
+    logger.info(f"Completed Claude response. Length: {len(claude_response)} characters")
 
-    await asyncio.sleep(2)  # Add a delay between model responses
+    # Add a delay between model responses to avoid rate limiting
+    await asyncio.sleep(2)
 
+    # Inform the user that GPT processing is starting
     await context.bot.send_message(chat_id=chat_id, text="Now processing GPT response")
 
+    # Process the message with GPT
     logger.info("Starting GPT response")
-    await process_message(update, context, gpt_request, "GPT", image_content)
-    logger.info("Completed GPT response")
+    gpt_response = await process_message(update, context, gpt_request, "GPT", image_content)
+    logger.info(f"Completed GPT response. Length: {len(gpt_response)} characters")
 
+    # Inform the user that the comparison is complete
     await context.bot.send_message(chat_id=chat_id, text="Comparison complete.")
-
+    logger.info("Comparison command completed")
+ 
 async def generate_image_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     # Handle /generate_image command to create images using DALL-E
     prompt = update.message.text.replace('/generate_image', '').strip()
