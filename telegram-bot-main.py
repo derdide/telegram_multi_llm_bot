@@ -61,19 +61,55 @@ with open('chat-modes.json', 'r') as f:
 def setup_database():
     conn = sqlite3.connect('bot_database.sqlite')
     cursor = conn.cursor()
-    # Create table for storing conversations
-    cursor.execute('''
-    CREATE TABLE IF NOT EXISTS conversations
-    (user_id INTEGER, message TEXT, response TEXT, timestamp DATETIME DEFAULT CURRENT_TIMESTAMP)
-    ''')
-    # Create table for tracking API usage
-    cursor.execute('''
-    CREATE TABLE IF NOT EXISTS api_usage
-    (api STRING, tokens_used INTEGER, cost REAL, timestamp DATETIME DEFAULT CURRENT_TIMESTAMP)
-    ''')
+    # Check if the table conversations exists
+    cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='conversations'")
+    if cursor.fetchone() is not None:
+        # Table exists, check for columns
+        cursor.execute("PRAGMA table_info(conversations)")
+        columns = [column[1] for column in cursor.fetchall()]
+        
+        # Add prompt_tokens if it doesn't exist
+        if 'message' not in columns:
+            cursor.execute("ALTER TABLE conversations ADD COLUMN message TEXT DEFAULT 0")
+        
+    else:
+        # Table doesn't exist, create it with all necessary columns
+            cursor.execute('''
+               CREATE TABLE IF NOT EXISTS conversations
+               (user_id INTEGER, message TEXT, response TEXT, timestamp DATETIME DEFAULT CURRENT_TIMESTAMP)
+               ''')
+ 
+    # Check if the table api_usage exists
+    cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='api_usage'")
+    if cursor.fetchone() is not None:
+        # Table exists, check for columns
+        cursor.execute("PRAGMA table_info(api_usage)")
+        columns = [column[1] for column in cursor.fetchall()]
+        
+        # Add prompt_tokens if it doesn't exist
+        if 'prompt_tokens' not in columns:
+            cursor.execute("ALTER TABLE api_usage ADD COLUMN prompt_tokens INTEGER DEFAULT 0")
+        
+        # Add completion_tokens if it doesn't exist
+        if 'completion_tokens' not in columns:
+            cursor.execute("ALTER TABLE api_usage ADD COLUMN completion_tokens INTEGER DEFAULT 0")
+        
+        # Rename tokens_used to total_tokens if necessary
+        if 'tokens_used' in columns and 'total_tokens' not in columns:
+            cursor.execute("ALTER TABLE api_usage RENAME COLUMN tokens_used TO total_tokens")
+        elif 'total_tokens' not in columns:
+            cursor.execute("ALTER TABLE api_usage ADD COLUMN total_tokens INTEGER DEFAULT 0")
+    else:
+        # Table doesn't exist, create it with all necessary columns
+        cursor.execute('''
+        CREATE TABLE api_usage
+        (api STRING, prompt_tokens INTEGER, completion_tokens INTEGER, total_tokens INTEGER, 
+         cost REAL, timestamp DATETIME DEFAULT CURRENT_TIMESTAMP)
+        ''')
+ 
     conn.commit()
     conn.close()
-
+ 
 # Bot command handlers
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     # Send welcome message when the command /start is issued
@@ -92,6 +128,7 @@ async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     /image <prompt> - Generate an image based on the prompt
     /mode <mode_name> - Switch to a special chat mode
     /balance - Check the current API usage and costs
+    /recent_usage - Check  
     """
     if not is_authorized(update):
         await update.message.reply_text("Sorry, you are not authorized to use this bot.")
@@ -131,10 +168,18 @@ async def gpt_request(prompt, image_content=None, mode=None):
 
         logger.info(f"Received response from OpenAI: {response}")
 
+        # Log the full token usage
+        logger.info(f"OpenAI API call - Prompt tokens: {response.usage.prompt_tokens}, "
+                    f"Completion tokens: {response.usage.completion_tokens}, "
+                    f"Total tokens: {response.usage.total_tokens}")
+
         # Track API usage
         tokens_used = response.usage.total_tokens
-        cost = tokens_used * 0.00002  # Assuming $0.02 per 1K tokens, adjust as needed
-        save_api_usage("openai", tokens_used, cost)
+        save_api_usage("openai", 
+                       response.usage.prompt_tokens, 
+                       response.usage.completion_tokens, 
+                       response.usage.total_tokens)
+
 
         return response.choices[0].message.content.strip()
     except Exception as e:
@@ -170,11 +215,20 @@ async def claude_request(prompt, image_content=None, mode=None):
 
         logger.info(f"Received response from Anthropic: {response}")
 
-        # Track API usage (Note: Anthropic doesn't provide token count, so we'll estimate)
-        estimated_tokens = len(prompt.split()) + len(response.content[0].text.split())
-        cost = estimated_tokens * 0.00002  # Adjust the cost calculation as needed
-        save_api_usage("anthropic", estimated_tokens, cost)
+        # Calculate token usage
+        prompt_tokens = len(message_content.split())
+        completion_tokens = len(response.content[0].text.split())
+        total_tokens = prompt_tokens + completion_tokens
 
+        # Log the token usage
+        logger.info(f"Anthropic API call - Prompt tokens (estimated): {prompt_tokens}, "
+                    f"Completion tokens (estimated): {completion_tokens}, "
+                    f"Total tokens (estimated): {total_tokens}")
+
+        # Track API usage
+        save_api_usage("anthropic", prompt_tokens, completion_tokens, total_tokens)
+
+     
         return response.content[0].text
     except Exception as e:
         logger.error(f"Error in Claude request: {str(e)}")
@@ -396,21 +450,45 @@ async def set_mode_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text(f"Invalid mode. Available modes are: {available_modes}. Please use '/mode reset' to return to standard chat mode")
 
 async def balance_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    # Handle /balance command to show API usage summary
     if not is_authorized(update):
         await update.message.reply_text("Sorry, you are not authorized to use this bot.")
         return
     conn = sqlite3.connect('bot_database.sqlite')
     cursor = conn.cursor()
-    cursor.execute("SELECT api, SUM(tokens_used) as total_tokens, SUM(cost) as total_cost FROM api_usage GROUP BY api")
+    cursor.execute("SELECT api, SUM(prompt_tokens) as total_prompt_tokens, "
+                   "SUM(completion_tokens) as total_completion_tokens, "
+                   "SUM(total_tokens) as total_tokens FROM api_usage GROUP BY api")
     results = cursor.fetchall()
     conn.close()
 
     balance_text = "API Usage Summary:\n"
-    for api, total_tokens, total_cost in results:
-        balance_text += f"{api}: {total_tokens} tokens used, ${total_cost:.2f} spent\n"
+    for api, prompt_tokens, completion_tokens, total_tokens in results:
+        balance_text += f"{api}:\n"
+        balance_text += f"  Prompt Tokens: {prompt_tokens}\n"
+        balance_text += f"  Completion Tokens: {completion_tokens}\n"
+        balance_text += f"  Total Tokens: {total_tokens}\n\n"
 
     await update.message.reply_text(balance_text)
+
+async def recent_usage_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if not is_authorized(update):
+        await update.message.reply_text("Sorry, you are not authorized to use this bot.")
+        return
+    conn = sqlite3.connect('bot_database.sqlite')
+    cursor = conn.cursor()
+    cursor.execute("SELECT api, prompt_tokens, completion_tokens, total_tokens, timestamp "
+                   "FROM api_usage ORDER BY timestamp DESC LIMIT 10")
+    results = cursor.fetchall()
+    conn.close()
+
+    usage_text = "Recent API Usage:\n"
+    for api, prompt_tokens, completion_tokens, total_tokens, timestamp in results:
+        usage_text += f"{timestamp} - {api}:\n"
+        usage_text += f"  Prompt Tokens: {prompt_tokens}\n"
+        usage_text += f"  Completion Tokens: {completion_tokens}\n"
+        usage_text += f"  Total Tokens: {total_tokens}\n\n"
+
+    await update.message.reply_text(usage_text)
 
 def save_to_database(user_id, message, response):
     # Save conversation to SQLite database
@@ -425,10 +503,13 @@ def save_api_usage(api, tokens_used, cost):
     # Save API usage data to SQLite database
     conn = sqlite3.connect('bot_database.sqlite')
     cursor = conn.cursor()
-    cursor.execute('INSERT INTO api_usage (api, tokens_used, cost) VALUES (?, ?, ?)',
-                   (api, tokens_used, cost))
+    cursor.execute('INSERT INTO api_usage (api, prompt_tokens, completion_tokens, total_tokens) VALUES (?, ?, ?, ?)',
+                   (api, prompt_tokens, completion_tokens, total_tokens))
     conn.commit()
     conn.close()
+    logger.info(f"API Usage saved: {api}, Prompt Tokens: {prompt_tokens}, "
+                f"Completion Tokens: {completion_tokens}, Total Tokens: {total_tokens}")
+
 
 def main():
     # Set up the database and initialize the Telegram bot
@@ -445,7 +526,7 @@ def main():
     application.add_handler(CommandHandler("image", generate_image_command))
     application.add_handler(CommandHandler("mode", set_mode_command))
     application.add_handler(CommandHandler("balance", balance_command))
-
+    application.add_handler(CommandHandler("recent_usage", recent_usage_command))
     application.add_handler(MessageHandler(
         filters.ALL & ~filters.COMMAND,
         lambda update, context: update.message.reply_text("Sorry, you are not authorized to use this bot.")
