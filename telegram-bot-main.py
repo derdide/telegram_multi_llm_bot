@@ -209,11 +209,12 @@ async def process_message(update: Update, context: ContextTypes.DEFAULT_TYPE, mo
     # Process user message and handle image attachments
     user_message = update.message.text
     mode = context.user_data.get('mode')
+    chat_id = update.effective_chat.id
 
     # adding some logging
     logger.info(f"Received message: {user_message}")
     if not is_authorized(update):
-        await update.message.reply_text("Sorry, you are not authorized to use this bot.")
+        await context.bot.send_message(chat_id=chat_id, text="Sorry, you are not authorized to use this bot.")
         return
     
     if image_content is None:
@@ -237,7 +238,7 @@ async def process_message(update: Update, context: ContextTypes.DEFAULT_TYPE, mo
     full_response = f"*{model_name} says:*\n\n{response}"
     response_parts = await split_long_message(full_response)
     for part in response_parts:
-        await update.message.reply_text(escape_markdown(part), parse_mode='MarkdownV2')
+        await context.bot.send_message(chat_id=chat_id, text=escape_markdown(part), parse_mode='MarkdownV2')
     save_to_database(update.effective_user.id, user_message, full_response)
 
     return full_response
@@ -269,31 +270,22 @@ async def compare_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.message.document:
         file = await context.bot.get_file(update.message.document.file_id)
         image_content = await get_file_content(file)
-        logger.info("Document received for compare command")
     elif update.message.photo:
         file = await context.bot.get_file(update.message.photo[-1].file_id)
         image_content = await get_file_content(file)
-        logger.info("Photo received for compare command")
-
-    if image_content:
-        logger.info("Image content successfully extracted for compare command")
-    else:
-        logger.info("No image content found for compare command")
 
     # Process Claude response
-    claude_response = await claude_request(user_message, image_content, context.user_data.get('mode'))
-    claude_response_parts = await split_long_message(f"*Claude says:*\n\n{claude_response}")
-    for part in claude_response_parts:
-        await context.bot.send_message(chat_id=chat_id, text=escape_markdown(part), parse_mode='MarkdownV2')
+    claude_update = Update(update_id=update.update_id, message=update.message.copy())
+    claude_update.message.text = user_message
+    await process_message(claude_update, context, claude_request, "Claude", image_content)
 
     # Send a separator
-    await context.bot.send_message(chat_id=chat_id, text="Now getting GPT's response\.\.\.", parse_mode='MarkdownV2')
+    await context.bot.send_message(chat_id=chat_id, text="Now waiting for GPT's response\.\.\.", parse_mode='MarkdownV2')
 
     # Process GPT response
-    gpt_response = await gpt_request(user_message, image_content, context.user_data.get('mode'))
-    gpt_response_parts = await split_long_message(f"*GPT says:*\n\n{gpt_response}")
-    for part in gpt_response_parts:
-        await context.bot.send_message(chat_id=chat_id, text=escape_markdown(part), parse_mode='MarkdownV2')
+    gpt_update = Update(update_id=update.update_id, message=update.message.copy())
+    gpt_update.message.text = user_message
+    await process_message(gpt_update, context, gpt_request, "GPT", image_content)
  
 async def generate_image_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     # Handle /generate_image command to create images using DALL-E
