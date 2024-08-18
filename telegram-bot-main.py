@@ -232,27 +232,41 @@ async def process_message(update: Update, context: ContextTypes.DEFAULT_TYPE, mo
     else:
         logger.info(f"No image content found for {model_name}")
 
-    # Get response from the specified model
+    logger.info(f"Requesting response from {model_name}")
     response = await model_request(user_message, image_content, mode)
-    # Split the response into multiple messages if it's too long
+    logger.info(f"Received response from {model_name}")
+
     full_response = f"*{model_name} says:*\n\n{response}"
     response_parts = await split_long_message(full_response)
     
-    for part in response_parts:
+    total_parts = len(response_parts)
+    logger.info(f"Response split into {total_parts} parts")
+
+    if total_parts > 1:
+        await context.bot.send_message(chat_id=chat_id, text=f"Multi-part answer - expecting {total_parts} messages")
+
+    for i, part in enumerate(response_parts, 1):
         try:
-            await context.bot.send_message(chat_id=chat_id, text=escape_markdown(part), parse_mode='MarkdownV2')
+            logger.info(f"Sending part {i} of {total_parts}")
+            await context.bot.send_message(
+                chat_id=chat_id,
+                text=escape_markdown(f"Part {i}/{total_parts}:\n\n{part}"),
+                parse_mode='MarkdownV2'
+            )
+            logger.info(f"Successfully sent part {i} of {total_parts}")
+            await asyncio.sleep(1)  # Add a small delay between messages
         except Exception as e:
-            logger.error(f"Error sending message part: {str(e)}")
-            # Attempt to send without markdown if parsing fails
+            logger.error(f"Error sending message part {i}: {str(e)}")
             try:
-                await context.bot.send_message(chat_id=chat_id, text=part)
+                await context.bot.send_message(chat_id=chat_id, text=f"Part {i}/{total_parts}:\n\n{part}")
+                logger.info(f"Sent part {i} without markdown")
             except Exception as e2:
-                logger.error(f"Error sending plain message part: {str(e2)}")
-    
+                logger.error(f"Error sending plain message part {i}: {str(e2)}")
+
     save_to_database(update.effective_user.id, user_message, full_response)
+    logger.info(f"Completed processing message for {model_name}")
 
     return full_response
-
 def escape_markdown(text):
     """Helper function to escape markdown special characters"""
     escape_chars = '_*[]()~`>#+-=|{}.!'
@@ -284,14 +298,19 @@ async def compare_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         file = await context.bot.get_file(update.message.photo[-1].file_id)
         image_content = await get_file_content(file)
 
-    # Process Claude response
+    logger.info("Starting Claude response")
     await process_message(update, context, claude_request, "Claude", image_content)
+    logger.info("Completed Claude response")
 
-    # Send a separator
-    await context.bot.send_message(chat_id=chat_id, text="Now getting GPT's response", parse_mode='MarkdownV2')
+    await asyncio.sleep(2)  # Add a delay between model responses
 
-    # Process GPT response
+    await context.bot.send_message(chat_id=chat_id, text="Now processing GPT response")
+
+    logger.info("Starting GPT response")
     await process_message(update, context, gpt_request, "GPT", image_content)
+    logger.info("Completed GPT response")
+
+    await context.bot.send_message(chat_id=chat_id, text="Comparison complete.")
 
 async def generate_image_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     # Handle /generate_image command to create images using DALL-E
