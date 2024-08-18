@@ -261,10 +261,10 @@ async def split_long_message(message, max_length=4000):
     
     return parts
 
-async def process_message(update: Update, context: ContextTypes.DEFAULT_TYPE, model_request, model_name, image_content = None):
+async def process_message(update: Update, context: ContextTypes.DEFAULT_TYPE, model_request, model_name, image_content = None, prompt = None):
     # Extract necessary information from the update object
     chat_id = update.effective_chat.id
-    user_message = update.message.text
+    user_message = prompt if prompt is not None else update.message.text
     mode = context.user_data.get('mode')
 
     logger.info(f"Processing message for {model_name}. Chat ID: {chat_id}")
@@ -397,7 +397,7 @@ async def compare_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     # Process the message with Claude
     logger.info("Starting Claude response")
-    claude_response = await process_message(update, context, claude_request, "Claude", image_content)
+    claude_response = await process_message(update, context, claude_request, "Claude", image_content, prompt)
     logger.info(f"Completed Claude response. Length: {len(claude_response)} characters")
 
     # Add a delay between model responses to avoid rate limiting
@@ -408,7 +408,7 @@ async def compare_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     # Process the message with GPT
     logger.info("Starting GPT response")
-    gpt_response = await process_message(update, context, gpt_request, "GPT", image_content)
+    gpt_response = await process_message(update, context, gpt_request, "GPT", image_content, prompt)
     logger.info(f"Completed GPT response. Length: {len(gpt_response)} characters")
 
     # Inform the user that the comparison is complete
