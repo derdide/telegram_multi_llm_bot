@@ -36,14 +36,21 @@ I currently run this bot on a self-hosted Raspberry Pi2 running Raspbian. Most o
 4. **Set up environment variables**
    Create a `.env` file in the project root and add the following:
    ```
-   TELEGRAM_TOKEN= add your telegram bot token, as provided by Botfather
-   OPENAI_API_KEY= add your openai api key
-   ANTHROPIC_API_KEY= add your anthropic api key
-   OPENAI_MODEL=gpt-4o-mini (or change with another model)
-   OPENAI_TOKENS= 16000 or adapt _
-   ANTHROPIC_MODEL=claude-3-opus-20240229 (or change with another model)
-   ANTHROPIC_TOKENS=4000 or adapt
+   # Telegram settings
+   TELEGRAM_TOKEN=your_telegram_token_here
+   AUTHORIZED_USERS=your_telegram_user1,your_telegram_user1
+   AUTHORIZED_GROUPS=your_telegram_group1,your_telegram_group2
+   
+   # Open AI settings
+   OPENAI_API_KEY=your_openai_api_key_here
+   OPENAI_MODEL=gpt-40-mini
+   OPENAI_TOKENS=max_number_of_tokens_for_openai
    IMAGE_GEN_MODEL=dall-e-3
+   
+   # Anthropic settings
+   ANTHROPIC_API_KEY=your_anthropic_api_key_here
+   ANTHROPIC_MODEL=claude-3-opus-20240229
+   ANTHROPIC_TOKENS=max_number_of_tokens_for_anthropic_
    ```
 
 5. **Set up the database**
