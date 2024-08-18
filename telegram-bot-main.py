@@ -178,7 +178,34 @@ async def claude_request(prompt, image_content=None, mode=None):
         logger.error(f"Error in Claude request: {str(e)}")
         return "Error occurred while processing Claude request."
 
-async def process_message(update: Update, context: ContextTypes.DEFAULT_TYPE, model_request):
+async def split_long_message(message: str, max_length: int = 4000) -> list[str]:
+    """
+    Split a long message into multiple parts that fit within Telegram's message length limit.
+    
+    :param message: The message to split
+    :param max_length: Maximum length of each part (default: 4000 to leave some room for formatting)
+    :return: A list of message parts
+    """
+    if len(message) <= max_length:
+        return [message]
+    
+    parts = []
+    while len(message) > max_length:
+        part = message[:max_length]
+        last_newline = part.rfind('\n')
+        if last_newline != -1:
+            part = message[:last_newline]
+            message = message[last_newline+1:]
+        else:
+            message = message[max_length:]
+        parts.append(part)
+    
+    if message:
+        parts.append(message)
+    
+    return parts
+
+async def process_message(update: Update, context: ContextTypes.DEFAULT_TYPE, model_request, model_name):
     # Process user message and handle image attachments
     user_message = update.message.text
     image_content = None
@@ -206,8 +233,14 @@ async def process_message(update: Update, context: ContextTypes.DEFAULT_TYPE, mo
 
     # Get response from the specified model
     response = await model_request(user_message, image_content, mode)
-    await update.message.reply_text(response)
-    save_to_database(update.effective_user.id, user_message, response)
+    # Split the response into multiple messages if it's too long
+    full_response = f"*{model_name} says:*\n\n{response}"
+    response_parts = await split_long_message(response)
+    for part in response_parts:
+        await update.message.reply_text(escape_markdown(part), parse_mode='MarkdownV2')
+    save_to_database(update.effective_user.id, user_message, full_response)
+
+    return full_response
 
 def escape_markdown(text):
     """Helper function to escape markdown special characters"""
@@ -217,18 +250,19 @@ def escape_markdown(text):
 async def gpt_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     # Handle /gpt command
     logger.info("GPT command received")
-    await process_message(update, context, gpt_request)
+    update.message.reply_text("hold on a sec")
+    await process_message(update, context, gpt_request, "GPT")
 
 async def claude_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     # Handle /claude command
     logger.info("Claude command received")
-    await process_message(update, context, claude_request)
+    update.message.reply_text("hold on a sec")
+    await process_message(update, context, claude_request, "Claude")
 
 async def compare_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     # Handle /compare command to get responses from both GPT and Claude
+    update.message.reply_text("hold on a sec")
     user_message = update.message.text.replace('/compare', '').strip()
-    image_content = None
-    mode = context.user_data.get('mode')
 
     if update.message.document:
         file = await context.bot.get_file(update.message.document.file_id)
@@ -243,28 +277,27 @@ async def compare_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         logger.info("Image content successfully extracted for compare command")
     else:
         logger.info("No image content found for compare command")
-    # Get responses from both models concurrently
-    gpt_response, claude_response = await asyncio.gather(
-        gpt_request(user_message, image_content, mode),
-        claude_request(user_message, image_content, mode)
-    )
 
-    # Format the response using Telegram's markdown
-    combined_response = (
-        "*GPT Response:*\n"
-        "\n"
-        f"{escape_markdown(gpt_response)}\n"
-        "\n\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\n"
-        "*Claude Response:*\n"
-        "\n"
-        f"{escape_markdown(claude_response)}\n"
-        ""
-    )
+    # Create copies of the update object for each model
+    gpt_update = Update(update_id=update.update_id, message=update.message.copy())
+    claude_update = Update(update_id=update.update_id, message=update.message.copy())
+    
+    # Set the text for each update to the original user message
+    gpt_update.message.text = user_message
+    claude_update.message.text = user_message
 
-    # Send the formatted message
-    await update.message.reply_text(combined_response, parse_mode='MarkdownV2')
-    save_to_database(update.effective_user.id, user_message, combined_response)
+    
+    # Start with Claude
+    await process_message(claude_update, context, lambda msg, img, md: claude_request(msg, img, md), "Claude")
+ 
+    # Send a separator
+    await update.message.reply_text("Hold on a sec", parse_mode='MarkdownV2')
 
+    #Then GPT answer
+    await process_message(gpt_update, context, lambda msg, img, md: gpt_request(msg, img, md), "GPT")
+    
+    # Note: We don't need to save to the database here, as process_message already does that
+    
 async def generate_image_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     # Handle /generate_image command to create images using DALL-E
     prompt = update.message.text.replace('/generate_image', '').strip()
