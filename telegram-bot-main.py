@@ -235,7 +235,7 @@ async def process_message(update: Update, context: ContextTypes.DEFAULT_TYPE, mo
     response = await model_request(user_message, image_content, mode)
     # Split the response into multiple messages if it's too long
     full_response = f"*{model_name} says:*\n\n{response}"
-    response_parts = await split_long_message(response)
+    response_parts = await split_long_message(full_response)
     for part in response_parts:
         await update.message.reply_text(escape_markdown(part), parse_mode='MarkdownV2')
     save_to_database(update.effective_user.id, user_message, full_response)
