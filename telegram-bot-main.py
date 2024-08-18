@@ -311,7 +311,7 @@ async def set_mode_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text(f"Chat mode set to: {mode}")
     else:
         available_modes = ", ".join(CHAT_MODES.keys())
-        await update.message.reply_text(f"Invalid mode. Available modes are: {available_modes}")
+        await update.message.reply_text(f"Invalid mode. Available modes are: {available_modes}. Please use '/mode reset' to return to standard chat mode")
 
 async def balance_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     # Handle /balance command to show API usage summary
