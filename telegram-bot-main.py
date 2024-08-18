@@ -143,8 +143,10 @@ async def claude_request(prompt, image_content=None, mode=None):
     try:
         # Prepare messages for Claude API request
         messages = [{"role": "user", "content": prompt}]
-        if mode:
-            messages.insert(0, {"role": "system", "content": CHAT_MODES[mode]})
+        if mode and mode in CHAT_MODES:
+            system_prompt = CHAT_MODES[mode]
+            messages.append({"role": "system", "content": system_prompt})
+        messages.append({"role": "user", "content": prompt})
         if image_content:
             messages = [
                 {"role": "user", "content": [
@@ -152,7 +154,12 @@ async def claude_request(prompt, image_content=None, mode=None):
                     {"type": "image", "source": {"type": "base64", "media_type": "image/jpeg", "data": image_content}}
                 ]}
             ]
-
+        combined_prompt = ""
+        if mode and mode in CHAT_MODES:
+            combined_prompt += f"Human: {system_prompt}\n\nHuman: {prompt}\n\nAssistant:"
+        else:
+            combined_prompt += f"Human: {prompt}\n\nAssistant:"
+        
         logger.info(f"Sending request to Anthropic. Model: {ANTHROPIC_MODEL}, Messages: {messages}")
 
         # Make API call to Anthropic
