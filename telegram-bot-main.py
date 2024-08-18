@@ -250,18 +250,18 @@ def escape_markdown(text):
 async def gpt_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     # Handle /gpt command
     logger.info("GPT command received")
-    update.message.reply_text("hold on a sec")
+    await update.message.reply_text("hold on a sec")
     await process_message(update, context, gpt_request, "GPT")
 
 async def claude_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     # Handle /claude command
     logger.info("Claude command received")
-    update.message.reply_text("hold on a sec")
+    await update.message.reply_text("hold on a sec")
     await process_message(update, context, claude_request, "Claude")
 
 async def compare_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     # Handle /compare command to get responses from both GPT and Claude
-    update.message.reply_text("hold on a sec")
+    await update.message.reply_text("hold on a sec")
     user_message = update.message.text.replace('/compare', '').strip()
 
     if update.message.document:
