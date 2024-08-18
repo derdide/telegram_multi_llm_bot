@@ -26,17 +26,24 @@ OPENAI_TOKENS = os.getenv('OPENAI_TOKENS')
 ANTHROPIC_MODEL = os.getenv('ANTHROPIC_MODEL')
 ANTHROPIC_TOKENS = os.getenv('ANTHROPIC_TOKENS')
 IMAGE_GEN_MODEL = os.getenv('IMAGE_GEN_MODEL')
-AUTHORIZED_USERS = list(map(int, os.getenv('AUTHORIZED_USERS', '').split(',')))
-AUTHORIZED_GROUPS = list(map(int, os.getenv('AUTHORIZED_GROUPS', '').split(',')))
 
 # Telegram authorized Users and group chats
+def get_authorized_ids(env_var_name):
+    ids_str = os.getenv(env_var_name, '')
+    if not ids_str:
+        return []
+    return [int(id.strip()) for id in ids_str.split(',') if id.strip()]
+
+AUTHORIZED_USERS = get_authorized_ids('AUTHORIZED_USERS')
+AUTHORIZED_GROUPS = get_authorized_ids('AUTHORIZED_GROUPS')
+
 def is_authorized(update: Update) -> bool:
     user_id = update.effective_user.id
     chat_id = update.effective_chat.id
     
-    if user_id in AUTHORIZED_USERS:
+    if AUTHORIZED_USERS and user_id in AUTHORIZED_USERS:
         return True
-    if chat_id in AUTHORIZED_GROUPS:
+    if AUTHORIZED_GROUPS and chat_id in AUTHORIZED_GROUPS:
         return True
     return False
  
