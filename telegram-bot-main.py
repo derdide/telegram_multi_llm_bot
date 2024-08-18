@@ -237,8 +237,18 @@ async def process_message(update: Update, context: ContextTypes.DEFAULT_TYPE, mo
     # Split the response into multiple messages if it's too long
     full_response = f"*{model_name} says:*\n\n{response}"
     response_parts = await split_long_message(full_response)
+    
     for part in response_parts:
-        await context.bot.send_message(chat_id=chat_id, text=escape_markdown(part), parse_mode='MarkdownV2')
+        try:
+            await context.bot.send_message(chat_id=chat_id, text=escape_markdown(part), parse_mode='MarkdownV2')
+        except Exception as e:
+            logger.error(f"Error sending message part: {str(e)}")
+            # Attempt to send without markdown if parsing fails
+            try:
+                await context.bot.send_message(chat_id=chat_id, text=part)
+            except Exception as e2:
+                logger.error(f"Error sending plain message part: {str(e2)}")
+    
     save_to_database(update.effective_user.id, user_message, full_response)
 
     return full_response
@@ -275,18 +285,14 @@ async def compare_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         image_content = await get_file_content(file)
 
     # Process Claude response
-    claude_update = Update(update_id=update.update_id, message=update.message.copy())
-    claude_update.message.text = user_message
-    await process_message(claude_update, context, claude_request, "Claude", image_content)
+    await process_message(update, context, claude_request, "Claude", image_content)
 
     # Send a separator
-    await context.bot.send_message(chat_id=chat_id, text="Now waiting for GPT's response\.\.\.", parse_mode='MarkdownV2')
+    await context.bot.send_message(chat_id=chat_id, text="Now getting GPT's response...", parse_mode='MarkdownV2')
 
     # Process GPT response
-    gpt_update = Update(update_id=update.update_id, message=update.message.copy())
-    gpt_update.message.text = user_message
-    await process_message(gpt_update, context, gpt_request, "GPT", image_content)
- 
+    await process_message(update, context, gpt_request, "GPT", image_content)
+
 async def generate_image_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     # Handle /generate_image command to create images using DALL-E
     prompt = update.message.text.replace('/generate_image', '').strip()
