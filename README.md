@@ -11,7 +11,7 @@ I currently run this bot on a self-hosted Raspberry Pi2 running Raspbian. Most o
 - **Image Generation**: Create images on-the-fly using DALL-E.
 - **Special Chat Modes**: Customize your AI interactions with predefined modes.
 - **Image Understanding**: Send images to the AI models for analysis and discussion. [=> WORK IN PROGRESS]
-- **Usage Tracking**: Monitor your API usage and associated costs. [=> WORK IN PROGRESS]
+- **Usage Tracking**: Monitor your API usage [=> WORK IN PROGRESS]
 - **Conversation History**: All interactions are saved for future reference. [=> WORK IN PROGRESS]
 
 ## 🛠️ Installation
@@ -82,17 +82,18 @@ To setup the bot as a service on a Linux server (e.g. Raspberry Pi), please foll
      - `/help`: View available commands
      - `/gpt <message>`: Interact with GPT
      - `/claude <message>`: Interact with Claude
-     - `/compare <message>`: Compare responses from GPT and Claude
+     - `/compare <message>`: Compare responses from both Claude and GPT
      - `/image <prompt>`: Generate an image based on the prompt
      - `/mode <mode_name>`: Switch to a special chat mode. Use '/mode reset' to return back to standard chat mode
      - `/balance`: Check current API usage and costs
 
 3. **Send images**
-   - You can send images to the bot, and it will include them in the AI analysis
+
+You can send images to the bot, and it will include them in the AI analysis
 
 ## 📊 API Usage and Costs
 
-The bot tracks API usage and estimated costs for each interaction. Use the `/balance` command to view a summary of your usage.
+The bot tracks API usage for each interaction. Use the `/balance` command to view a summary of your usage.
 
 ## 🔐 Security Note
 
