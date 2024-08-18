@@ -142,11 +142,10 @@ async def gpt_request(prompt, image_content=None, mode=None):
 async def claude_request(prompt, image_content=None, mode=None):
     try:
         # Prepare messages for Claude API request
-        messages = [{"role": "user", "content": prompt}]
+        message_content = prompt
         if mode and mode in CHAT_MODES:
             system_prompt = CHAT_MODES[mode]
-            messages.append({"role": "system", "content": system_prompt})
-        messages.append({"role": "user", "content": prompt})
+            message_content = f"{system_prompt}\n\nHuman: {prompt}"
         if image_content:
             messages = [
                 {"role": "user", "content": [
