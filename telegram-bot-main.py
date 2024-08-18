@@ -205,10 +205,9 @@ async def split_long_message(message, max_length=4000):
     
     return parts
 
-async def process_message(update: Update, context: ContextTypes.DEFAULT_TYPE, model_request, model_name):
+async def process_message(update: Update, context: ContextTypes.DEFAULT_TYPE, model_request, model_name, image_content = None):
     # Process user message and handle image attachments
     user_message = update.message.text
-    image_content = None
     mode = context.user_data.get('mode')
 
     # adding some logging
@@ -217,19 +216,20 @@ async def process_message(update: Update, context: ContextTypes.DEFAULT_TYPE, mo
         await update.message.reply_text("Sorry, you are not authorized to use this bot.")
         return
     
-    if update.message.document:
-        file = await context.bot.get_file(update.message.document.file_id)
-        image_content = await get_file_content(file)
-        logger.info("Document received and processed")
-    elif update.message.photo:
-        file = await context.bot.get_file(update.message.photo[-1].file_id)
-        image_content = await get_file_content(file)
-        logger.info("Photo received and processed")
+    if image_content is None:
+        if update.message.document:
+            file = await context.bot.get_file(update.message.document.file_id)
+            image_content = await get_file_content(file)
+            logger.info(f"Document received and processed for {model_name}")
+        elif update.message.photo:
+            file = await context.bot.get_file(update.message.photo[-1].file_id)
+            image_content = await get_file_content(file)
+            logger.info(f"Photo received and processed for {model_name}")
 
     if image_content:
-        logger.info("Image content successfully extracted")
+        logger.info(f"Image content successfully extracted for {model_name}")
     else:
-        logger.info("No image content found")
+        logger.info(f"No image content found for {model_name}")
 
     # Get response from the specified model
     response = await model_request(user_message, image_content, mode)
@@ -262,6 +262,7 @@ async def claude_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def compare_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     # Handle /compare command to get responses from both GPT and Claude
     await update.message.reply_text("hold on a sec")
+    image_content = None
     user_message = update.message.text.replace('/compare', '').strip()
 
     if update.message.document:
@@ -288,13 +289,13 @@ async def compare_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     
     # Start with Claude
-    await process_message(claude_update, context, lambda msg, img, md: claude_request(msg, img, md), "Claude")
+    await process_message(claude_update, context, lambda msg, img, md: claude_request(msg, img, md), "Claude", image_content)
  
     # Send a separator
     await update.message.reply_text("Hold on a sec", parse_mode='MarkdownV2')
 
     #Then GPT answer
-    await process_message(gpt_update, context, lambda msg, img, md: gpt_request(msg, img, md), "GPT")
+    await process_message(gpt_update, context, lambda msg, img, md: gpt_request(msg, img, md), "GPT", image_content)
     
     # Note: We don't need to save to the database here, as process_message already does that
     
