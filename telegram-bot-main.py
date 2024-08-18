@@ -268,7 +268,8 @@ async def process_message(update: Update, context: ContextTypes.DEFAULT_TYPE, mo
     mode = context.user_data.get('mode')
 
     logger.info(f"Processing message for {model_name}. Chat ID: {chat_id}")
-
+    logger.info(f"Message content: {user_message[:50]}...")  # Log first 50 chars of message
+ 
     # Check user authorization
     if not is_authorized(update):
         await context.bot.send_message(chat_id=chat_id, text="Sorry, you are not authorized to use this bot.")
@@ -276,14 +277,27 @@ async def process_message(update: Update, context: ContextTypes.DEFAULT_TYPE, mo
 
     # Process image content if present
     if image_content is None:
+        logger.info("Checking for attached media")
         if update.message.document:
-            file = await context.bot.get_file(update.message.document.file_id)
-            image_content = await get_file_content(file)
-            logger.info(f"Document processed for {model_name}")
+            logger.info(f"Document detected: {update.message.document.file_name}")
+            try:
+                file = await context.bot.get_file(update.message.document.file_id)
+                image_content = await get_file_content(file)
+                logger.info(f"Document processed for {model_name}. Size: {len(image_content)} bytes")
+            except Exception as e:
+                logger.error(f"Error processing document: {str(e)}")
         elif update.message.photo:
-            file = await context.bot.get_file(update.message.photo[-1].file_id)
-            image_content = await get_file_content(file)
-            logger.info(f"Photo processed for {model_name}")
+            logger.info(f"Photo detected. Number of sizes: {len(update.message.photo)}")
+            try:
+                file = await context.bot.get_file(update.message.photo[-1].file_id)
+                image_content = await get_file_content(file)
+                logger.info(f"Photo processed for {model_name}. Size: {len(image_content)} bytes")
+            except Exception as e:
+                logger.error(f"Error processing photo: {str(e)}")
+        else:
+            logger.info("No media detected in the message")
+    else:
+        logger.info("Image content already provided")
 
     # Request response from the specified AI model
     logger.info(f"Requesting response from {model_name}")
