@@ -178,7 +178,7 @@ async def claude_request(prompt, image_content=None, mode=None):
         logger.error(f"Error in Claude request: {str(e)}")
         return "Error occurred while processing Claude request."
 
-async def split_long_message(message: str, max_length: int = 4000) -> list[str]:
+async def split_long_message(message, max_length=4000):
     """
     Split a long message into multiple parts that fit within Telegram's message length limit.
     
