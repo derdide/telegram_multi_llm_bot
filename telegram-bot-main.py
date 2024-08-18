@@ -424,9 +424,14 @@ async def generate_image_command(update: Update, context: ContextTypes.DEFAULT_T
         image_url = response.data[0].url
 
         # Estimate usage (since OpenAI doesn't provide token count for image generation)
-        estimated_cost = 0.02  # Adjust based on your DALL-E API pricing
-        save_api_usage("openai_image", 0, estimated_cost)
+        # We'll use a fixed token count for prompts and assume no completion tokens
+        estimated_prompt_tokens = len(prompt.split())
+        estimated_completion_tokens = 0
+        estimated_total_tokens = estimated_prompt_tokens
 
+        # Save API usage
+        save_api_usage("openai_image", estimated_prompt_tokens, estimated_completion_tokens, estimated_total_tokens)
+     
         await update.message.reply_photo(image_url, caption="Generated image based on your prompt.")
     except Exception as e:
         logger.error(f"Error in image generation: {str(e)}")
@@ -499,7 +504,7 @@ def save_to_database(user_id, message, response):
     conn.commit()
     conn.close()
 
-def save_api_usage(api, tokens_used, cost):
+def save_api_usage(api, prompt_tokens, completion_tokens, total_tokens):
     # Save API usage data to SQLite database
     conn = sqlite3.connect('bot_database.sqlite')
     cursor = conn.cursor()
