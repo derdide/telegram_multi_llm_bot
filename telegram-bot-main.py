@@ -287,7 +287,7 @@ async def compare_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await context.bot.send_message(chat_id=chat_id, text=escape_markdown(part), parse_mode='MarkdownV2')
 
     # Send a separator
-    await context.bot.send_message(chat_id=chat_id, text="Now getting GPT's response...", parse_mode='MarkdownV2')
+    await context.bot.send_message(chat_id=chat_id, text="Now getting GPT's response\.\.\.", parse_mode='MarkdownV2')
 
     # Process GPT response
     gpt_response = await gpt_request(user_message, image_content, context.user_data.get('mode'))
