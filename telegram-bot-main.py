@@ -402,17 +402,23 @@ async def compare_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     logger.info("Comparison command completed")
  
 async def generate_image_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    # Handle /generate_image command to create images using DALL-E
-    prompt = update.message.text.replace('/generate_image', '').strip()
+    chat_id = update.effective_chat.id
+    user_message = update.message.text
+    
+    logger.info(f"Processing image generation request. Chat ID: {chat_id}")
+
     if not is_authorized(update):
-        await update.message.reply_text("Sorry, you are not authorized to use this bot.")
+        await context.bot.send_message(chat_id=chat_id, text="Sorry, you are not authorized to use this bot.")
         return
+
+    prompt = user_message.replace('/generate_image', '').strip()
     if not prompt:
-        await update.message.reply_text("Please provide a prompt for image generation.")
+        await context.bot.send_message(chat_id=chat_id, text="Please provide a prompt for image generation.")
         return
 
     try:
-        # Make API call to OpenAI for image generation
+        logger.info(f"Sending image generation request to OpenAI. Prompt: {prompt[:50]}...")
+        
         response = openai.images.generate(
             model=IMAGE_GEN_MODEL,
             prompt=prompt,
@@ -422,20 +428,25 @@ async def generate_image_command(update: Update, context: ContextTypes.DEFAULT_T
         )
 
         image_url = response.data[0].url
+        logger.info(f"Image generated successfully. URL: {image_url}")
 
-        # Estimate usage (since OpenAI doesn't provide token count for image generation)
-        # We'll use a fixed token count for prompts and assume no completion tokens
+        # Estimate usage
         estimated_prompt_tokens = len(prompt.split())
         estimated_completion_tokens = 0
         estimated_total_tokens = estimated_prompt_tokens
 
-        # Save API usage
         save_api_usage("openai_image", estimated_prompt_tokens, estimated_completion_tokens, estimated_total_tokens)
-     
-        await update.message.reply_photo(image_url, caption="Generated image based on your prompt.")
+        logger.info(f"API usage saved for image generation. Estimated tokens: {estimated_total_tokens}")
+
+        await context.bot.send_photo(chat_id=chat_id, photo=image_url, caption="Generated image based on your prompt.")
+        logger.info("Image sent to user successfully")
+
     except Exception as e:
         logger.error(f"Error in image generation: {str(e)}")
-        await update.message.reply_text("An error occurred while generating the image.")
+        error_message = "An error occurred while generating the image. Please try again later."
+        await context.bot.send_message(chat_id=chat_id, text=error_message)
+
+    logger.info(f"Completed processing image generation request for Chat ID: {chat_id}")
 
 async def set_mode_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     # Handle /mode command to set special chat modes
