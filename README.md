@@ -58,6 +58,8 @@ I currently run this bot on a self-hosted Raspberry Pi2 running Raspbian. Most o
      "casual": "You are a friendly and casual conversational partner."
    }
    ```
+## 🛸 Server
+To setup the bot as a service on a Linux server (e.g. Raspberry Pi), please follow instructions here: https://github.com/derdide/telegram_multi_llm_bot/issues/11#issuecomment-2295244069
 
 ## 🚀 Usage
 
