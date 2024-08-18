@@ -261,7 +261,8 @@ async def claude_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def compare_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     # Handle /compare command to get responses from both GPT and Claude
-    await update.message.reply_text("hold on a sec")
+    chat_id = update.effective_chat.id
+    await context.bot.send_message(chat_id=chat_id, text="Hold on a sec")
     image_content = None
     user_message = update.message.text.replace('/compare', '').strip()
 
@@ -279,26 +280,21 @@ async def compare_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     else:
         logger.info("No image content found for compare command")
 
-    # Create copies of the update object for each model
-    gpt_update = Update(update_id=update.update_id, message=update.message.copy())
-    claude_update = Update(update_id=update.update_id, message=update.message.copy())
-    
-    # Set the text for each update to the original user message
-    gpt_update.message.text = user_message
-    claude_update.message.text = user_message
+    # Process Claude response
+    claude_response = await claude_request(user_message, image_content, context.user_data.get('mode'))
+    claude_response_parts = await split_long_message(f"*Claude says:*\n\n{claude_response}")
+    for part in claude_response_parts:
+        await context.bot.send_message(chat_id=chat_id, text=escape_markdown(part), parse_mode='MarkdownV2')
 
-    
-    # Start with Claude
-    await process_message(claude_update, context, lambda msg, img, md: claude_request(msg, img, md), "Claude", image_content)
- 
     # Send a separator
-    await update.message.reply_text("Hold on a sec", parse_mode='MarkdownV2')
+    await context.bot.send_message(chat_id=chat_id, text="Now getting GPT's response...", parse_mode='MarkdownV2')
 
-    #Then GPT answer
-    await process_message(gpt_update, context, lambda msg, img, md: gpt_request(msg, img, md), "GPT", image_content)
-    
-    # Note: We don't need to save to the database here, as process_message already does that
-    
+    # Process GPT response
+    gpt_response = await gpt_request(user_message, image_content, context.user_data.get('mode'))
+    gpt_response_parts = await split_long_message(f"*GPT says:*\n\n{gpt_response}")
+    for part in gpt_response_parts:
+        await context.bot.send_message(chat_id=chat_id, text=escape_markdown(part), parse_mode='MarkdownV2')
+ 
 async def generate_image_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     # Handle /generate_image command to create images using DALL-E
     prompt = update.message.text.replace('/generate_image', '').strip()
