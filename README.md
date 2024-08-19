@@ -2,17 +2,17 @@
 
 Welcome to the Multi-LLM Telegram Bot project! This versatile bot brings the power of GPT and Claude AI models directly to your Telegram chats, allowing to prompt both GPT and Claude through Telegram to easily compare the responses from both models. There are also  image generation capabilities and special chat modes. 
 
-I currently run this bot on a self-hosted Raspberry Pi2 running Raspbian. Most of the workload is on the LLM hosting side (e.g. OPenAI or Anthropic) and the resource useage on the bot side itself is quite low - of course, this may vary significantly depending on how many users run your bot. The bot is currently built with the assumption that useage will be limited with a low number of users (yourself, friends and family). 
+I currently run this bot on a self-hosted Raspberry Pi running Raspbian. Most of the workload is on the LLM hosting side (e.g. OPenAI or Anthropic) and the resource useage on the bot side itself is quite low so far - of course, this may vary significantly depending on how many users run your bot. The bot is currently built with the assumption that useage will be limited with a low number of users (yourself, maybe friends and family). 
 
 ## 🌟 Features
 
-- **Dual AI Integration**: Interact with both GPT and Claude AI models.
-- **AI Comparison**: Compare responses from GPT and Claude side by side.
+- **Dual AI Integration**: Interact with both GPT and Claude AI models. This is stateless so far, so each interaction is a one-off thing, there is no real "conversation" aspect
+- **AI Comparison**: Compare responses from GPT and Claude side by side. Same comment about it being stateless. 
 - **Image Generation**: Create images on-the-fly using DALL-E.
 - **Special Chat Modes**: Customize your AI interactions with predefined modes.
-- **Image Understanding**: Send images to the AI models for analysis and discussion. [=> WORK IN PROGRESS]
-- **Usage Tracking**: Monitor your API usage [=> WORK IN PROGRESS]
-- **Conversation History**: All interactions are saved for future reference. [=> WORK IN PROGRESS]
+- ~**Image Understanding**: Send images to the AI models for analysis and discussion.~ This happens to not be as simple as expected, it remains planned - see issue #3 - and I don't want to take it out but it doesn't work at the moment
+- **Usage Tracking**: Monitor your API usage - please take the results with a grain of salt (see issue #4)
+- **Conversation History**: All interactions are saved for future reference. Feature is at level 0, interactions are stored, but there is no way to retrieve them and nothing is done with them (issue #5)
 
 ## 🛠️ Installation
 
