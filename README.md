@@ -2,7 +2,7 @@
 
 Welcome to the Multi-LLM Telegram Bot project! This versatile bot brings the power of GPT and Claude AI models directly to your Telegram chats, allowing to prompt both GPT and Claude through Telegram to easily compare the responses from both models. There are also  image generation capabilities and special chat modes.
 
-I currently run this bot on a self-hosted Raspberry Pi running Raspbian. Most of the workload is on the LLM hosting side (e.g. OPenAI or Anthropic) and the resource useage on the bot side itself is quite low so far - of course, this may vary significantly depending on how many users run your bot. The bot is currently built with the assumption that useage will be limited with a low number of users (yourself, maybe friends and family).
+I currently run this bot on a self-hosted Raspberry Pi running Raspbian. Most of the workload is on the LLM hosting side (e.g. OpenAI or Anthropic) and the resource useage on the bot side itself is quite low so far - of course, this may vary significantly depending on how many users run your bot. The bot is currently built with the assumption that usage will be limited with a low number of users (yourself, maybe friends and family).
 
 ## 🌟 Features
 
@@ -38,7 +38,7 @@ I currently run this bot on a self-hosted Raspberry Pi running Raspbian. Most of
    ```
    # Telegram settings
    TELEGRAM_TOKEN=your_telegram_token_here
-   AUTHORIZED_USERS=your_telegram_user1,your_telegram_user1
+   AUTHORIZED_USERS=your_telegram_user1,your_telegram_user2
    AUTHORIZED_GROUPS=your_telegram_group1,your_telegram_group2
 
    # Open AI settings
@@ -72,7 +72,7 @@ To setup the bot as a service on a Linux server (e.g. Raspberry Pi), please foll
 
 1. **Start the bot**
    ```
-   python telegram-bit-main-bot.py
+   python telegram-bot-main.py
    ```
 
 2. **Interact with the bot on Telegram**
