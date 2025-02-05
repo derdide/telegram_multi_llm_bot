@@ -1,13 +1,13 @@
 # Multi-LLM Telegram Bot 🤖🚀
 
-Welcome to the Multi-LLM Telegram Bot project! This versatile bot brings the power of GPT and Claude AI models directly to your Telegram chats, allowing to prompt both GPT and Claude through Telegram to easily compare the responses from both models. There are also  image generation capabilities and special chat modes. 
+Welcome to the Multi-LLM Telegram Bot project! This versatile bot brings the power of GPT and Claude AI models directly to your Telegram chats, allowing to prompt both GPT and Claude through Telegram to easily compare the responses from both models. There are also  image generation capabilities and special chat modes.
 
-I currently run this bot on a self-hosted Raspberry Pi running Raspbian. Most of the workload is on the LLM hosting side (e.g. OPenAI or Anthropic) and the resource useage on the bot side itself is quite low so far - of course, this may vary significantly depending on how many users run your bot. The bot is currently built with the assumption that useage will be limited with a low number of users (yourself, maybe friends and family). 
+I currently run this bot on a self-hosted Raspberry Pi running Raspbian. Most of the workload is on the LLM hosting side (e.g. OpenAI or Anthropic) and the resource useage on the bot side itself is quite low so far - of course, this may vary significantly depending on how many users run your bot. The bot is currently built with the assumption that usage will be limited with a low number of users (yourself, maybe friends and family).
 
 ## 🌟 Features
 
 - **Dual AI Integration**: Interact with both GPT and Claude AI models. This is stateless so far, so each interaction is a one-off thing, there is no real "conversation" aspect
-- **AI Comparison**: Compare responses from GPT and Claude side by side. Same comment about it being stateless. 
+- **AI Comparison**: Compare responses from GPT and Claude side by side. Same comment about it being stateless.
 - **Image Generation**: Create images on-the-fly using DALL-E.
 - **Special Chat Modes**: Customize your AI interactions with predefined modes.
 - ~**Image Understanding**: Send images to the AI models for analysis and discussion.~ This happens to not be as simple as expected, it remains planned - see issue #3 - and I don't want to take it out but it doesn't work at the moment
@@ -15,6 +15,14 @@ I currently run this bot on a self-hosted Raspberry Pi running Raspbian. Most of
 - **Conversation History**: All interactions are saved for future reference. Feature is at level 0, interactions are stored, but there is no way to retrieve them and nothing is done with them (issue #5)
 
 ## 🛠️ Installation
+
+0. **Prerequisites**
+
+- Python 3.9 or higher
+- A Telegram bot and its token (create one using [BotFather](https://core.telegram.org/bots#botfather))
+- Your User ID (you can get it by sending a message to [userinfobot](https://t.me/userinfobot))
+- A Telegram Group where your bot will be added - You'll need its ID too ([tuto](https://stackoverflow.com/questions/32423837/telegram-bot-how-to-get-a-group-chat-id))
+- API keys for GPT and Claude
 
 1. **Clone the repository**
    ```
@@ -38,15 +46,15 @@ I currently run this bot on a self-hosted Raspberry Pi running Raspbian. Most of
    ```
    # Telegram settings
    TELEGRAM_TOKEN=your_telegram_token_here
-   AUTHORIZED_USERS=your_telegram_user1,your_telegram_user1
+   AUTHORIZED_USERS=your_telegram_user1,your_telegram_user2
    AUTHORIZED_GROUPS=your_telegram_group1,your_telegram_group2
-   
+
    # Open AI settings
    OPENAI_API_KEY=your_openai_api_key_here
    OPENAI_MODEL=gpt-40-mini
    OPENAI_TOKENS=max_number_of_tokens_for_openai
    IMAGE_GEN_MODEL=dall-e-3
-   
+
    # Anthropic settings
    ANTHROPIC_API_KEY=your_anthropic_api_key_here
    ANTHROPIC_MODEL=claude-3-opus-20240229
@@ -72,7 +80,7 @@ To setup the bot as a service on a Linux server (e.g. Raspberry Pi), please foll
 
 1. **Start the bot**
    ```
-   python telegram-bit-main-bot.py
+   python telegram-bot-main.py
    ```
 
 2. **Interact with the bot on Telegram**
@@ -112,7 +120,7 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 - OpenAI for GPT and DALL-E APIs
 - Anthropic for the Claude API
 - The Python Telegram Bot library
-- Claude itself (3.5 Sonnet model) for its (significant) technical assistance   
+- Claude itself (3.5 Sonnet model) for its (significant) technical assistance
 
 ---
 
