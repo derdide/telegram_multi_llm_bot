@@ -16,6 +16,14 @@ I currently run this bot on a self-hosted Raspberry Pi running Raspbian. Most of
 
 ## 🛠️ Installation
 
+0. **Prerequisites**
+
+- Python 3.9 or higher
+- A Telegram bot and its token (create one using [BotFather](https://core.telegram.org/bots#botfather))
+- Your User ID (you can get it by sending a message to [userinfobot](https://t.me/userinfobot))
+- A Telegram Group where your bot will be added - You'll need its ID too ([tuto](https://stackoverflow.com/questions/32423837/telegram-bot-how-to-get-a-group-chat-id))
+- API keys for GPT and Claude
+
 1. **Clone the repository**
    ```
    git clone https://github.com/derdide/telegram_multi_llm_bot/
